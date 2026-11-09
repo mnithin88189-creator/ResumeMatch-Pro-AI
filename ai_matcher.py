@@ -1,41 +1,99 @@
+
 import re
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer, util
 
 
-def _normalize(text: str) -> str:
+# Load the semantic NLP model only once
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+_model = None
+
+
+def get_model():
+    global _model
+
+    if _model is None:
+        print("Loading Semantic NLP model...")
+        _model = SentenceTransformer(MODEL_NAME)
+        print("Semantic NLP model loaded successfully!")
+
+    return _model
+
+
+def normalize(text):
     return re.sub(r"\s+", " ", (text or "").lower()).strip()
 
 
-def _skill_matches(resume_text: str, job_skills: list[str]) -> list[str]:
-    resume = _normalize(resume_text)
+def skill_matches(resume_text, job_skills):
+    resume = normalize(resume_text)
     matched = []
+
     for skill in job_skills:
-        normalized = _normalize(skill)
-        if normalized and re.search(r"(?<![a-z0-9+#.])" + re.escape(normalized) + r"(?![a-z0-9+#.])", resume):
+        normalized = normalize(skill)
+
+        if normalized and re.search(
+            r"(?<![a-z0-9+#.])"
+            + re.escape(normalized)
+            + r"(?![a-z0-9+#.])",
+            resume
+        ):
             matched.append(skill)
+
     return matched
 
 
-def calculate_ai_match(resume_text: str, job_title: str, job_description: str, job_skills: list[str]) -> dict:
-    """NLP/ML-assisted ATS matching using TF-IDF and cosine similarity plus skill matching."""
-    resume = _normalize(resume_text)
-    job_text = _normalize(" ".join([job_title, job_description, " ".join(job_skills)]))
+def calculate_ai_match(
+    resume_text,
+    job_title,
+    job_description,
+    job_skills
+):
+    """
+    Semantic NLP resume matching using Sentence Transformers.
+    Combines semantic similarity with required skill coverage.
+    """
 
-    matched_skills = _skill_matches(resume, job_skills)
-    skill_score = (len(matched_skills) / len(job_skills) * 100) if job_skills else 0
+    resume = normalize(resume_text)
 
-    vectorizer = TfidfVectorizer(ngram_range=(1, 2), stop_words="english")
-    try:
-        matrix = vectorizer.fit_transform([job_text, resume])
-        similarity = float(cosine_similarity(matrix[0:1], matrix[1:2])[0][0]) * 100
-    except ValueError:
-        similarity = 0.0
+    job_text = normalize(
+        " ".join([
+            job_title,
+            job_description,
+            " ".join(job_skills)
+        ])
+    )
 
-    # 65% required-skill coverage + 35% NLP similarity.
-    score = round((skill_score * 0.65) + (similarity * 0.35))
+    # Required skill matching
+    matched_skills = skill_matches(resume, job_skills)
+
+    skill_score = (
+        len(matched_skills) / len(job_skills) * 100
+        if job_skills else 0
+    )
+
+    # Semantic similarity
+    model = get_model()
+
+    embeddings = model.encode(
+        [job_text, resume],
+        convert_to_tensor=True,
+        normalize_embeddings=True
+    )
+
+    similarity = float(
+        util.cos_sim(embeddings[0], embeddings[1]).item()
+    ) * 100
+
+    similarity = max(0, min(100, similarity))
+
+    # Combined ATS score
+    score = round(
+        (skill_score * 0.65) +
+        (similarity * 0.35)
+    )
+
     score = max(0, min(100, score))
 
+    # Recommendation
     if score >= 75:
         recommendation = "Strong Match"
     elif score >= 50:
@@ -48,6 +106,10 @@ def calculate_ai_match(resume_text: str, job_title: str, job_description: str, j
         "matched_skills": matched_skills,
         "skill_score": round(skill_score),
         "nlp_similarity": round(similarity),
+        "semantic_similarity": round(similarity),
         "recommendation": recommendation,
-        "matching_method": "TF-IDF + Cosine Similarity + Skill Matching",
+        "matching_method": (
+            "Sentence Transformers + Semantic Similarity "
+            "+ Skill Matching"
+        )
     }

@@ -565,3 +565,147 @@ button {
   font-weight: 700;
   cursor: pointer;
 }
+
+/* Candidate Ranking System */
+
+.ranking-section {
+  margin: 28px 0;
+}
+
+.ranking-section > .meta {
+  margin-bottom: 16px;
+}
+
+.ranking-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.ranking-card {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.ranking-card h3 {
+  margin: 0 0 6px;
+}
+
+.ranking-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.ranking-candidate {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ranking-candidate p {
+  margin: 5px 0 0;
+}
+
+.ranking-metrics {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.ranking-score {
+  font-size: 1.35rem;
+}
+
+@media (max-width: 600px) {
+  .ranking-item {
+    align-items: flex-start;
+  }
+}
+
+/* Candidate Shortlisting System */
+
+.candidate-status {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.status-pending {
+  color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.status-shortlisted {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.status-rejected {
+  color: var(--red);
+  background: #fff0f0;
+}
+
+.candidate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shortlist-btn {
+  background: var(--green);
+}
+
+.shortlist-btn:hover {
+  background: #106b48;
+}
+
+.reject-btn {
+  background: var(--red);
+}
+
+.reject-btn:hover {
+  background: #8e2929;
+}
+
+.candidate-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .candidate-actions {
+    flex-direction: column;
+  }
+
+  .candidate-actions button {
+    width: 100%;
+  }
+}
+
