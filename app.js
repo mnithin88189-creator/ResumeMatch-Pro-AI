@@ -1,4 +1,3 @@
-
 const STORAGE_KEY = "ResumeMatch Pro AI";
 const MAX_RESUME_SIZE = 5 * 1024 * 1024;
 
@@ -46,6 +45,7 @@ let selectedCandidateSearch = "";
 
 const app = document.querySelector("#app");
 
+
 // LOAD AND SAVE DATA
 
 function loadState() {
@@ -79,6 +79,7 @@ function loadState() {
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
+
 
 // HELPER FUNCTIONS
 
@@ -116,6 +117,7 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 2600);
 }
 
+
 // FILE SIZE FORMAT
 
 function formatFileSize(bytes) {
@@ -135,6 +137,7 @@ function formatFileSize(bytes) {
 
   return `${(size / (1024 * 1024)).toFixed(2)} MB`;
 }
+
 
 // SAFE DOWNLOAD LINK
 
@@ -158,6 +161,7 @@ function renderResumeDownload(application) {
   `;
 }
 
+
 // APPLICATION FILTER
 
 function filterApplications(applications) {
@@ -179,9 +183,12 @@ function filterApplications(applications) {
   });
 }
 
-// LOGIN PAGE
 
-function renderLogin() {
+// --------------------------------------------------
+// LOGIN AND CREATE ACCOUNT
+// --------------------------------------------------
+
+function renderLogin(showRegister = false) {
   currentUser = null;
 
   app.innerHTML = `
@@ -209,10 +216,10 @@ function renderLogin() {
 
         <form class="panel" id="loginForm">
 
-          <h2>Sign in</h2>
+          <h2>${showRegister ? "Create an Account" : "Sign in"}</h2>
 
           <p class="subtle">
-            Choose your portal and enter basic details to continue.
+            Choose your portal and enter your account details to continue.
           </p>
 
           <div class="role-tabs">
@@ -233,15 +240,21 @@ function renderLogin() {
 
           </div>
 
-          <div class="field">
-            <label for="name">Full name</label>
-            <input
-              id="name"
-              name="name"
-              placeholder="Enter your name"
-              required
-            />
-          </div>
+          ${
+            showRegister
+              ? `
+                <div class="field">
+                  <label for="name">Full name</label>
+                  <input
+                    id="name"
+                    name="name"
+                    placeholder="Enter your full name"
+                    required
+                  />
+                </div>
+              `
+              : ""
+          }
 
           <div class="field">
             <label for="email">Email</label>
@@ -254,9 +267,51 @@ function renderLogin() {
             />
           </div>
 
-          <button class="btn full" type="submit">
-            Login as ${selectedRole === "student" ? "Student" : "HR"}
+          <div class="field">
+            <label for="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter your password"
+              minlength="8"
+              required
+            />
+          </div>
+
+          <button class="btn full" type="submit" id="authSubmit">
+            ${
+              showRegister
+                ? "Create Account"
+                : `Login as ${selectedRole === "student" ? "Student" : "HR"}`
+            }
           </button>
+
+          <p class="subtle" style="text-align:center; margin-top:18px;">
+
+            ${
+              showRegister
+                ? `
+                  Already have an account?
+                  <button
+                    type="button"
+                    class="btn ghost"
+                    id="showLogin">
+                    Sign in
+                  </button>
+                `
+                : `
+                  Don't have an account?
+                  <button
+                    type="button"
+                    class="btn ghost"
+                    id="showRegister">
+                    Create an Account
+                  </button>
+                `
+            }
+
+          </p>
 
         </form>
 
@@ -264,31 +319,137 @@ function renderLogin() {
     </section>
   `;
 
+
+  // ROLE SELECTION
+
   document.querySelectorAll("[data-role]").forEach((button) => {
+
     button.addEventListener("click", () => {
+
       selectedRole = button.dataset.role;
-      renderLogin();
+
+      renderLogin(showRegister);
+
     });
+
   });
 
-  document.querySelector("#loginForm").addEventListener("submit", (event) => {
+
+  // SWITCH TO CREATE ACCOUNT
+
+  const showRegisterButton = document.querySelector("#showRegister");
+
+  if (showRegisterButton) {
+
+    showRegisterButton.addEventListener("click", () => {
+      renderLogin(true);
+    });
+
+  }
+
+
+  // SWITCH TO LOGIN
+
+  const showLoginButton = document.querySelector("#showLogin");
+
+  if (showLoginButton) {
+
+    showLoginButton.addEventListener("click", () => {
+      renderLogin(false);
+    });
+
+  }
+
+
+  // LOGIN / REGISTER FORM SUBMISSION
+
+  document.querySelector("#loginForm").addEventListener("submit", async (event) => {
+
     event.preventDefault();
 
     const form = new FormData(event.currentTarget);
 
-    currentUser = {
+    const submitButton = document.querySelector("#authSubmit");
+
+    const payload = {
       role: selectedRole,
-      name: form.get("name").trim(),
-      email: form.get("email").trim()
+      email: form.get("email").trim(),
+      password: form.get("password")
     };
 
-    selectedRole === "student"
-      ? renderStudent()
-      : renderHr();
+    if (showRegister) {
+      payload.name = form.get("name").trim();
+    }
+
+    submitButton.disabled = true;
+
+    submitButton.textContent = showRegister
+      ? "Creating Account..."
+      : "Signing in...";
+
+    try {
+
+      const response = await fetch(
+        showRegister ? "/api/register" : "/api/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || "Something went wrong. Please try again."
+        );
+      }
+
+      if (showRegister) {
+
+        showToast("Account created successfully. Please sign in.");
+
+        renderLogin(false);
+
+        return;
+
+      }
+
+      currentUser = {
+        role: result.role,
+        name: result.name,
+        email: result.email
+      };
+
+      showToast("Login successful.");
+
+      currentUser.role === "student"
+        ? renderStudent()
+        : renderHr();
+
+    } catch (error) {
+
+      showToast(error.message || "Unable to connect to the server.");
+
+      submitButton.disabled = false;
+
+      submitButton.textContent = showRegister
+        ? "Create Account"
+        : `Login as ${selectedRole === "student" ? "Student" : "HR"}`;
+
+    }
+
   });
+
 }
 
+
+// --------------------------------------------------
 // TOP NAVIGATION
+// --------------------------------------------------
 
 function renderTopbar(roleLabel) {
   return `
@@ -320,10 +481,15 @@ function renderTopbar(roleLabel) {
 }
 
 function attachLogout() {
-  document.querySelector("#logoutBtn").addEventListener("click", renderLogin);
+  document.querySelector("#logoutBtn").addEventListener("click", () => {
+    renderLogin(false);
+  });
 }
 
+
+// --------------------------------------------------
 // STATUS BADGE
+// --------------------------------------------------
 
 function renderStatusBadge(status) {
   const safeStatus = ["Pending", "Shortlisted", "Rejected"].includes(status)
@@ -337,7 +503,10 @@ function renderStatusBadge(status) {
   `;
 }
 
+
+// --------------------------------------------------
 // STUDENT DASHBOARD
+// --------------------------------------------------
 
 function renderStudent() {
   const myApplications = state.applications.filter(
@@ -536,7 +705,6 @@ function renderStudent() {
     });
   });
 }
-
 // JOB CARD
 
 function renderJobCard(job, alreadyApplied) {
@@ -584,6 +752,7 @@ function renderJobCard(job, alreadyApplied) {
     </article>
   `;
 }
+
 
 // APPLY FORM
 
@@ -799,6 +968,7 @@ function renderApplyForm(jobId) {
   });
 }
 
+
 // CANDIDATE RANKINGS
 
 function renderCandidateRankings(applications) {
@@ -903,6 +1073,7 @@ function renderCandidateRankings(applications) {
     </section>
   `;
 }
+
 
 // CANDIDATE PROFILE VIEW
 
@@ -1125,7 +1296,6 @@ function renderCandidateProfile(applicationId) {
     }
   });
 }
-
 // HR APPLICATION CARD
 
 function renderApplicationCard(application) {
@@ -1299,6 +1469,7 @@ function renderApplicationCard(application) {
   `;
 }
 
+
 // UPDATE APPLICATION STATUS
 
 function updateApplicationStatus(applicationId, newStatus) {
@@ -1323,6 +1494,7 @@ function updateApplicationStatus(applicationId, newStatus) {
 
   renderHr();
 }
+
 
 // HR DASHBOARD
 
@@ -1662,6 +1834,7 @@ function renderHr() {
   });
 }
 
+
 // RESET DEMO DATA
 
 function resetDemo() {
@@ -1684,6 +1857,7 @@ function resetDemo() {
     ? renderHr()
     : renderStudent();
 }
+
 
 // START APPLICATION
 

@@ -1,22 +1,8 @@
 
 import re
-from sentence_transformers import SentenceTransformer, util
 
-
-# Load the semantic NLP model only once
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-_model = None
-
-
-def get_model():
-    global _model
-
-    if _model is None:
-        print("Loading Semantic NLP model...")
-        _model = SentenceTransformer(MODEL_NAME)
-        print("Semantic NLP model loaded successfully!")
-
-    return _model
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 def normalize(text):
@@ -48,40 +34,52 @@ def calculate_ai_match(
     job_skills
 ):
     """
-    Semantic NLP resume matching using Sentence Transformers.
-    Combines semantic similarity with required skill coverage.
+    Resume matching using TF-IDF, cosine similarity
+    and required skill coverage.
     """
 
     resume = normalize(resume_text)
 
     job_text = normalize(
         " ".join([
-            job_title,
-            job_description,
-            " ".join(job_skills)
+            job_title or "",
+            job_description or "",
+            " ".join(job_skills or [])
         ])
     )
 
     # Required skill matching
-    matched_skills = skill_matches(resume, job_skills)
+    matched_skills = skill_matches(
+        resume,
+        job_skills or []
+    )
 
     skill_score = (
         len(matched_skills) / len(job_skills) * 100
         if job_skills else 0
     )
 
-    # Semantic similarity
-    model = get_model()
+    # TF-IDF similarity
+    try:
+        vectorizer = TfidfVectorizer(
+            stop_words="english",
+            ngram_range=(1, 2)
+        )
 
-    embeddings = model.encode(
-        [job_text, resume],
-        convert_to_tensor=True,
-        normalize_embeddings=True
-    )
+        vectors = vectorizer.fit_transform([
+            job_text,
+            resume
+        ])
 
-    similarity = float(
-        util.cos_sim(embeddings[0], embeddings[1]).item()
-    ) * 100
+        similarity = float(
+            cosine_similarity(
+                vectors[0:1],
+                vectors[1:2]
+            )[0][0]
+        ) * 100
+
+    except ValueError:
+        similarity = 0.0
 
     similarity = max(0, min(100, similarity))
 
@@ -109,7 +107,6 @@ def calculate_ai_match(
         "semantic_similarity": round(similarity),
         "recommendation": recommendation,
         "matching_method": (
-            "Sentence Transformers + Semantic Similarity "
-            "+ Skill Matching"
+            "TF-IDF + Cosine Similarity + Skill Matching"
         )
     }
