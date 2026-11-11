@@ -152,12 +152,13 @@ def register():
     try:
 
         
+       
         connection.execute(
     """
-    INSERT INTO users (name, email, password, password_hash, role)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO users (name, email, password_hash, role)
+    VALUES (?, ?, ?, ?)
     """,
-    (name, email, password_hash, password_hash, role)
+    (name, email, password_hash, role)
 )
 
 
